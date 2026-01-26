@@ -27,6 +27,15 @@ def get_db():
         db.close()
 
 
+def get_current_user():
+    def dependency(phone_number: str = Depends(auth.verify_token_only), db: Session = Depends(get_db)):
+        user = crud.get_user_by_phone(db, phone_number)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        return user
+    return dependency
+
+
 app = FastAPI(title="TeleBirr API", version="1.0.0")
 
 app.add_middleware(
@@ -85,7 +94,7 @@ def login(payload: schemas.LoginSchema, db=Depends(get_db)):
 
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
-def send_money(payload: schemas.TransferSchema, db=Depends(get_db), token_user=Depends(auth.verify_token)):
+def send_money(payload: schemas.TransferSchema, db=Depends(get_db), token_user=Depends(get_current_user())):
     if token_user.phone_number == payload.recipientPhone:
         raise exceptions.TeleBirrException("Cannot send money to yourself", "SELF_TRANSFER")
     
@@ -107,7 +116,7 @@ def send_money(payload: schemas.TransferSchema, db=Depends(get_db), token_user=D
 
 
 @app.post("/equb/deposit", response_model=schemas.EqubDepositResponse)
-def equb_deposit(payload: schemas.EqubDepositSchema, db=Depends(get_db), token_user=Depends(auth.verify_token)):
+def equb_deposit(payload: schemas.EqubDepositSchema, db=Depends(get_db), token_user=Depends(get_current_user())):
     if token_user.phone_number != payload.phoneNumber:
         raise exceptions.TeleBirrException("Token user does not match phone number", "TOKEN_MISMATCH")
     
@@ -138,7 +147,7 @@ def equb_deposit(payload: schemas.EqubDepositSchema, db=Depends(get_db), token_u
 
 
 @app.post("/equb/withdraw", response_model=schemas.EqubWithdrawResponse)
-def equb_withdraw(payload: schemas.EqubWithdrawSchema, db=Depends(get_db), token_user=Depends(auth.verify_token)):
+def equb_withdraw(payload: schemas.EqubWithdrawSchema, db=Depends(get_db), token_user=Depends(get_current_user())):
     if token_user.phone_number != payload.phoneNumber:
         raise exceptions.TeleBirrException("Token user does not match phone number", "TOKEN_MISMATCH")
     
@@ -162,7 +171,7 @@ def equb_withdraw(payload: schemas.EqubWithdrawSchema, db=Depends(get_db), token
 
 
 @app.get("/user/balance", response_model=schemas.BalanceResponse)
-def get_balance(phoneNumber: str = Query(...), db=Depends(get_db), token_user=Depends(auth.verify_token)):
+def get_balance(phoneNumber: str = Query(...), db=Depends(get_db), token_user=Depends(get_current_user())):
     if token_user.phone_number != phoneNumber:
         raise exceptions.TeleBirrException("Token user does not match phone number", "TOKEN_MISMATCH")
     
