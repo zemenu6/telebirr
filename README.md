@@ -70,33 +70,49 @@ Complete database schema available in `schema.sql` with:
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/telebirr-backend.git
-cd telebirr-backend
+git clone https://github.com/zemenu6/telebirr.git
+cd telebirr
 ```
 
 ### 2. Setup Nhost Project
-- Go to [Nhost Dashboard](https://app.nhost.io)
-- Create a new project or use existing one
-- Navigate to **Database** → **Connection parameters**
+1. **Create Nhost Account**: Go to [Nhost Dashboard](https://app.nhost.io)
+2. **Create New Project**: Click "New Project" → Choose region
+3. **Get Database Credentials**: Navigate to **Database** → **Connection parameters**
 
 ### 3. Configure Environment
-Update the `.env` file with your Nhost credentials:
+Update the `.env` file with your actual Nhost credentials:
+
 ```bash
 # Nhost Database Configuration
-NHOST_DB_HOST=your-project-name.db.nhost.run
+NHOST_DB_HOST=mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run
 NHOST_DB_PORT=5432
 NHOST_DB_USER=postgres
-NHOST_DB_PASSWORD=your-actual-password-here
-NHOST_DB_NAME=postgres
+NHOST_DB_PASSWORD=1dBufXeykxdVBsrJ
+NHOST_DB_NAME=mctmbhyqosnmbqorlhna
 
-# JWT Secret from Nhost dashboard
+# JWT Secret from Nhost dashboard → Settings → Authentication → JWT Secret
 NHOST_JWT_SECRET=your-actual-jwt-secret-here
+
+# Webhook Secret from Nhost dashboard → Settings → Functions → Webhook Secret
+NHOST_WEBHOOK_SECRET=your-actual-webhook-secret-here
+
+# Constructed Database URL (used by the application)
+DATABASE_URL=postgresql://${NHOST_DB_USER}:${NHOST_DB_PASSWORD}@${NHOST_DB_HOST}:${NHOST_DB_PORT}/${NHOST_DB_NAME}
+SECRET_KEY=${NHOST_JWT_SECRET}
+
+# Production Environment
+ENVIRONMENT=production
 ```
 
 ### 4. Setup Database
+Run the database schema in your Nhost PostgreSQL:
+
 ```bash
-# Run schema.sql in your Nhost PostgreSQL database
-psql -h your-nhost-db.nhost.run -U postgres -d postgres -f schema.sql
+# Option 1: Using psql
+psql -h mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run -U postgres -d mctmbhyqosnmbqorlhna -f schema.sql
+
+# Option 2: Using Nhost Dashboard
+# Navigate to Database → SQL Editor → Paste schema.sql content → Execute
 ```
 
 ### 5. Install Dependencies
@@ -106,17 +122,382 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 6. Run Backend
+### 6. Run Backend Locally
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 7. Deploy to Nhost
+### 7. Deploy to Production
+
+#### Option A: Nhost Functions (Recommended)
 ```bash
 npm install -g @nhost/cli
 nhost login
 nhost functions deploy
 ```
+
+#### Option B: Koyeb (Serverless)
+1. Connect GitHub repository to Koyeb
+2. Use `koyeb.yaml` configuration
+3. Deploy automatically
+
+#### Option C: Docker
+```bash
+docker build -t telebirr .
+docker run -p 8000:8000 telebirr
+```
+
+## 🔧 Technical Configuration
+
+### Database Connection Details
+
+#### Nhost PostgreSQL Connection
+```bash
+# Connection String
+postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna
+
+# Individual Parameters
+Host: mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run
+Port: 5432
+Database: mctmbhyqosnmbqorlhna
+Username: postgres
+Password: 1dBufXeykxdVBsrJ
+```
+
+#### Environment Variables
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `DATABASE_URL` | Full PostgreSQL connection string | Database connection |
+| `SECRET_KEY` | JWT secret from Nhost | JWT token signing |
+| `ENVIRONMENT` | `production` | App environment |
+| `NHOST_DB_HOST` | `mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run` | Database host |
+| `NHOST_DB_PORT` | `5432` | Database port |
+| `NHOST_DB_USER` | `postgres` | Database username |
+| `NHOST_DB_PASSWORD` | `1dBufXeykxdVBsrJ` | Database password |
+| `NHOST_DB_NAME` | `mctmbhyqosnmbqorlhna` | Database name |
+
+### API Endpoints
+
+#### Base URLs
+- **Local Development**: `http://localhost:8000`
+- **Nhost Production**: `https://mctmbhyqosnmbqorlhna.functions.nhost.run`
+- **Koyeb Production**: `https://telebirr-username.koyeb.app`
+
+#### Authentication Endpoints
+```bash
+# User Registration
+POST /auth/signup
+{
+    "phoneNumber": "+251912345678",
+    "username": "John Doe",
+    "password": "password123"
+}
+
+# User Login
+POST /auth/login
+{
+    "phoneNumber": "+251912345678",
+    "password": "password123"
+}
+```
+
+#### Money Transfer Endpoints
+```bash
+# Send Money (requires JWT token)
+POST /transactions/send-money
+Headers: Authorization: Bearer <jwt_token>
+{
+    "recipientPhone": "+251987654321",
+    "amount": 100.00
+}
+
+# Check Balance
+GET /user/balance?phoneNumber=+251912345678
+Headers: Authorization: Bearer <jwt_token>
+```
+
+#### Equb Savings Endpoints
+```bash
+# Deposit to Equb
+POST /equb/deposit
+Headers: Authorization: Bearer <jwt_token>
+{
+    "phoneNumber": "+251912345678",
+    "amount": 500.00,
+    "durationMonths": 1
+}
+
+# Withdraw from Equb
+POST /equb/withdraw
+Headers: Authorization: Bearer <jwt_token>
+{
+    "phoneNumber": "+251912345678",
+    "equbAccountId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Database Schema Structure
+
+#### Core Tables
+```sql
+-- Users Table (Phone-based authentication)
+CREATE TABLE users (
+    phone_number VARCHAR(15) PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    balance DECIMAL(15,2) DEFAULT 0.00,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Equb Accounts (Traditional savings)
+CREATE TABLE equb_accounts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    phone_number VARCHAR(15) NOT NULL REFERENCES users(phone_number),
+    amount DECIMAL(15,2) NOT NULL CHECK (amount >= 500.00),
+    deposit_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    maturity_date TIMESTAMP NOT NULL,
+    can_withdraw BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Transactions (All money movements)
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    from_phone VARCHAR(15) REFERENCES users(phone_number),
+    to_phone VARCHAR(15) REFERENCES users(phone_number),
+    amount DECIMAL(15,2) NOT NULL,
+    transaction_type transaction_type NOT NULL,
+    status transaction_status DEFAULT 'PENDING',
+    description TEXT,
+    reference_id VARCHAR(50),
+    equb_account_id UUID REFERENCES equb_accounts(id)
+);
+```
+
+### Security Configuration
+
+#### JWT Authentication
+```python
+# JWT Configuration
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ALGORITHM = "HS256"
+SECRET_KEY = "your-nhost-jwt-secret"
+
+# Token Creation
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+```
+
+#### Password Security
+```python
+# Password Hashing
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Hash Password
+hashed_password = pwd_context.hash(password)
+
+# Verify Password
+verified = pwd_context.verify(plain_password, hashed_password)
+```
+
+### Deployment Configurations
+
+#### Nhost Functions Configuration
+```yaml
+# nhost.yaml (if using Nhost)
+functions:
+  - name: telebirr-api
+    path: .
+    runtime: python39
+    memory: 512
+    timeout: 30
+```
+
+#### Koyeb Configuration
+```yaml
+# koyeb.yaml
+name: telebirr
+services:
+  - name: api
+    type: web
+    port: 8000
+    build:
+      type: docker
+      dockerfile: Dockerfile
+    env:
+      - key: DATABASE_URL
+        value: postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna
+      - key: SECRET_KEY
+        value: changeme
+      - key: ENVIRONMENT
+        value: production
+```
+
+#### Docker Configuration
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Testing Configuration
+
+#### Local Testing
+```bash
+# Install test dependencies
+pip install pytest pytest-asyncio httpx
+
+# Run tests
+pytest
+
+# Test specific endpoint
+curl -X POST http://localhost:8000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber": "+251912345678", "username": "Test User", "password": "testpass123"}'
+```
+
+#### Production Testing
+```bash
+# Test deployed API
+curl -X POST https://your-deployment-url/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"phoneNumber": "+251912345678", "username": "Test User", "password": "testpass123"}'
+```
+
+### Monitoring & Health Checks
+
+#### Health Check Endpoint
+```bash
+GET /
+# Response: {"message": "TeleBirr API is running"}
+```
+
+#### Database Health
+```bash
+# Test database connection
+curl -X GET http://localhost:8000/health/db
+# Response: {"database": "connected", "status": "healthy"}
+```
+
+#### Monitoring Tools
+- **Nhost Dashboard**: Built-in monitoring and logs
+- **Koyeb Dashboard**: Instance metrics and logs
+- **Local**: Use `uvicorn` logs for debugging
+
+### Troubleshooting
+
+#### Common Issues
+1. **Database Connection Failed**
+   - Check DATABASE_URL format
+   - Verify Nhost credentials
+   - Ensure database is running
+
+2. **JWT Token Errors**
+   - Verify SECRET_KEY is set
+   - Check token expiration
+   - Ensure proper Authorization header
+
+3. **Deployment Failures**
+   - Check requirements.txt versions
+   - Verify environment variables
+   - Review deployment logs
+
+#### Debug Commands
+```bash
+# Check database connection
+python -c "from app.main import engine; print(engine.execute('SELECT 1').scalar())"
+
+# Test JWT creation
+python -c "from app.auth import create_access_token; print(create_access_token({'sub': '+251912345678'}))"
+
+# Verify imports
+python -c "from app import models, crud, schemas, auth, exceptions; print('All imports successful')"
+```
+
+## 📱 Backend Structure
+
+```
+telebirr/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI application entry point
+│   ├── models.py               # SQLAlchemy ORM models
+│   ├── schemas.py              # Pydantic request/response schemas
+│   ├── crud.py                 # Database operations (CRUD)
+│   ├── auth.py                 # JWT authentication logic
+│   └── exceptions.py           # Custom error handlers
+├── schema.sql                  # Complete database schema
+├── requirements.txt            # Python dependencies
+├── .env                       # Environment variables
+├── Dockerfile                 # Docker configuration
+├── koyeb.yaml                 # Koyeb deployment config
+├── Procfile                   # Heroku-style process definition
+├── runtime.txt                # Python version specification
+└── README.md                  # This comprehensive guide
+```
+
+## 🎯 Equb Business Rules
+
+### ✅ Deposit Rules
+- **Minimum Amount**: 500 Birr
+- **Lock Period**: Exactly 1 month from deposit date
+- **Multiple Accounts**: Users can have multiple active equb savings
+- **Automatic Maturity**: System tracks and enables withdrawals
+
+### ✅ Withdrawal Rules
+- **Maturity Required**: Available only after maturity date
+- **Full Withdrawal**: Complete amount withdrawal only
+- **Account Deactivation**: Account closes after withdrawal
+- **User Selection**: Users choose from matured accounts
+
+## 🔒 Security Features
+
+- **Ethiopian Phone Validation**: +251 format validation
+- **Password Hashing**: Secure bcrypt implementation
+- **JWT Authentication**: Token-based security
+- **Atomic Transactions**: Database-level consistency
+- **Input Validation**: Comprehensive request validation
+- **CORS Protection**: Proper cross-origin configuration
+
+## 🚀 Production Checklist
+
+### Before Deployment
+- [ ] Update environment variables with actual credentials
+- [ ] Run database schema in production database
+- [ ] Test all API endpoints locally
+- [ ] Verify JWT authentication works
+- [ ] Check database connectivity
+- [ ] Test error handling
+
+### After Deployment
+- [ ] Verify health check endpoint
+- [ ] Test API with real phone numbers
+- [ ] Monitor application logs
+- [ ] Set up monitoring alerts
+- [ ] Test money transfer functionality
+- [ ] Verify equb deposit/withdrawal
+
+---
+
+<div align="center">
+  <p><strong>Built with ❤️ for Ethiopia</strong></p>
+  <p>TeleBirr Backend - Empowering Digital Payments & Traditional Savings</p>
+  <p>
+    <img src="https://img.shields.io/badge/FastAPI-0.104.1-green.svg" alt="FastAPI">
+    <img src="https://img.shields.io/badge/PostgreSQL-15-blue.svg" alt="PostgreSQL">
+    <img src="https://img.shields.io/badge/Nhost-Serverless-purple.svg" alt="Nhost">
+  </p>
+</div>
 
 ## 🎯 Equb Business Rules
 
