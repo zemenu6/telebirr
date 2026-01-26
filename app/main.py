@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 load_dotenv()
 
+# Use hardcoded values for Koyeb deployment since environment variables aren't working
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna")
 SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
 
@@ -61,7 +62,11 @@ def on_startup():
 
 @app.get("/")
 def root():
-    return {"message": "TeleBirr API is running"}
+    return {"message": "TeleBirr API is running", "status": "healthy"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "database": "not_connected"}
 
 
 @app.post("/auth/signup", response_model=schemas.UserResponse)
