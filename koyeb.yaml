@@ -1,14 +1,11 @@
 name: telebirr
 services:
   - name: api
-    source_dir: /
-    dockerfile: Dockerfile
-    docker:
-      build_context: .
+    type: web
+    port: 8000
+    build:
+      type: docker
       dockerfile: Dockerfile
-    ports:
-      - port: 8000
-        protocol: http
     env:
       - key: DATABASE_URL
         value: postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna
