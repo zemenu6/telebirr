@@ -54,7 +54,9 @@ app.add_exception_handler(Exception, exceptions.general_exception_handler)
 
 @app.on_event("startup")
 def on_startup():
-    models.Base.metadata.create_all(bind=engine)
+    # Skip automatic table creation for production
+    # Tables should be created manually using schema.sql
+    pass
 
 
 @app.get("/")

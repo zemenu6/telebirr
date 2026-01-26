@@ -13,6 +13,20 @@ services:
         value: changeme
       - key: ENVIRONMENT
         value: production
+      - key: NHOST_DB_HOST
+        value: mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run
+      - key: NHOST_DB_PORT
+        value: "5432"
+      - key: NHOST_DB_USER
+        value: postgres
+      - key: NHOST_DB_PASSWORD
+        value: 1dBufXeykxdVBsrJ
+      - key: NHOST_DB_NAME
+        value: mctmbhyqosnmbqorlhna
+      - key: NHOST_JWT_SECRET
+        value: changeme
+      - key: NHOST_WEBHOOK_SECRET
+        value: changeme
     health_check:
       http:
         path: /
