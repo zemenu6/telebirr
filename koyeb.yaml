@@ -1,0 +1,28 @@
+name: telebirr
+services:
+  - name: api
+    source_dir: /
+    dockerfile: Dockerfile
+    docker:
+      build_context: .
+      dockerfile: Dockerfile
+    ports:
+      - port: 8000
+        protocol: http
+    env:
+      - key: DATABASE_URL
+        value: postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna
+      - key: SECRET_KEY
+        value: changeme
+      - key: ENVIRONMENT
+        value: production
+    health_check:
+      http:
+        path: /
+        port: 8000
+        interval: 30s
+        timeout: 10s
+        retries: 3
+    instance_type: nano
+    regions:
+      - eu-central-1
