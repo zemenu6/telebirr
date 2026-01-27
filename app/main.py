@@ -30,9 +30,8 @@ def get_db():
 
 def get_current_user():
     def dependency(phone_number: str = Depends(auth.verify_token_only), db: Session = Depends(get_db)):
-        user = crud.get_user_by_phone(db, phone_number)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        # Sync user from Nhost to local database if needed
+        user = auth.sync_user_with_nhost(phone_number, db)
         return user
     return dependency
 
@@ -69,35 +68,9 @@ def health_check():
     return {"status": "healthy", "database": "not_connected"}
 
 
-@app.post("/auth/signup", response_model=schemas.UserResponse)
-def signup(payload: schemas.SignupSchema, db=Depends(get_db)):
-    existing = crud.get_user_by_phone(db, payload.phoneNumber)
-    if existing:
-        raise exceptions.TeleBirrException("Phone number already registered", "PHONE_EXISTS")
-    
-    user = crud.create_user(db, payload.phoneNumber, payload.username, payload.password, initial_balance=0.0)
-    return {
-        "success": True,
-        "message": "Account created successfully",
-        "phoneNumber": user.phone_number,
-        "username": user.username,
-        "balance": f"{user.balance:.2f}"
-    }
-
-
-@app.post("/auth/login", response_model=schemas.AuthResponse)
-def login(payload: schemas.LoginSchema, db=Depends(get_db)):
-    user = crud.authenticate_user(db, payload.phoneNumber, payload.password)
-    if not user:
-        raise exceptions.TeleBirrException("Invalid credentials", "INVALID_CREDENTIALS")
-    
-    return {
-        "success": True,
-        "message": "Login successful",
-        "phoneNumber": user.phone_number,
-        "username": user.username,
-        "balance": f"{user.balance:.2f}"
-    }
+# Authentication endpoints removed - Nhost handles signup/login
+# Use Nhost Auth service for user authentication
+# Frontend should call Nhost's auth endpoints directly
 
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
