@@ -5,7 +5,8 @@ import uuid
 import re
 
 
-class SignupSchema(BaseModel):
+# Request schemas
+class SignupRequest(BaseModel):
     phoneNumber: constr(min_length=10, max_length=10)
     username: constr(min_length=2, max_length=50)
     password: constr(min_length=6, max_length=6)
@@ -23,7 +24,7 @@ class SignupSchema(BaseModel):
         return v
 
 
-class LoginSchema(BaseModel):
+class LoginRequest(BaseModel):
     phoneNumber: constr(min_length=10, max_length=10)
     password: constr(min_length=6, max_length=6)
     
@@ -34,7 +35,7 @@ class LoginSchema(BaseModel):
         return v
 
 
-class TransferSchema(BaseModel):
+class SendMoneyRequest(BaseModel):
     recipientPhone: constr(min_length=10, max_length=10)
     amount: PositiveFloat
     
@@ -53,10 +54,10 @@ class TransferSchema(BaseModel):
         return v
 
 
-class EqubDepositSchema(BaseModel):
+class EqubDepositRequest(BaseModel):
     phoneNumber: constr(min_length=10, max_length=10)
     amount: PositiveFloat
-    durationMonths: int
+    durationMonths: int = 1
     
     @validator('phoneNumber')
     def validate_phone(cls, v):
@@ -79,7 +80,7 @@ class EqubDepositSchema(BaseModel):
         return v
 
 
-class EqubWithdrawSchema(BaseModel):
+class EqubWithdrawRequest(BaseModel):
     phoneNumber: constr(min_length=10, max_length=10)
     equbAccountId: str
     
@@ -98,20 +99,12 @@ class EqubWithdrawSchema(BaseModel):
         return v
 
 
-class UserResponse(BaseModel):
-    success: bool
-    message: str
-    phoneNumber: str
-    username: str
-    balance: str
-
-
 class AuthResponse(BaseModel):
     success: bool
     message: str
-    phoneNumber: str
-    username: str
-    balance: str
+    phoneNumber: Optional[str] = None
+    username: Optional[str] = None
+    balance: Optional[str] = None
 
 
 class TransactionResponse(BaseModel):
