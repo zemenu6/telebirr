@@ -1,34 +1,101 @@
-from pydantic import BaseModel, constr, PositiveFloat
+from pydantic import BaseModel, constr, PositiveFloat, validator
 from typing import Optional, List
 from datetime import datetime
 import uuid
+import re
 
 
 class SignupSchema(BaseModel):
-    phoneNumber: constr(min_length=10, max_length=15)
-    username: constr(min_length=3, max_length=50)
-    password: constr(min_length=6)
+    phoneNumber: constr(min_length=10, max_length=10)
+    username: constr(min_length=2, max_length=50)
+    password: constr(min_length=6, max_length=6)
+    
+    @validator('phoneNumber')
+    def validate_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Phone number must be in format 09XXXXXXXX')
+        return v
+    
+    @validator('password')
+    def validate_password(cls, v):
+        if not re.match(r'^[a-zA-Z0-9]{6}$', v):
+            raise ValueError('Password must be exactly 6 alphanumeric characters')
+        return v
 
 
 class LoginSchema(BaseModel):
-    phoneNumber: constr(min_length=10, max_length=15)
-    password: constr(min_length=6)
+    phoneNumber: constr(min_length=10, max_length=10)
+    password: constr(min_length=6, max_length=6)
+    
+    @validator('phoneNumber')
+    def validate_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Phone number must be in format 09XXXXXXXX')
+        return v
 
 
 class TransferSchema(BaseModel):
-    recipientPhone: constr(min_length=10, max_length=15)
+    recipientPhone: constr(min_length=10, max_length=10)
     amount: PositiveFloat
+    
+    @validator('recipientPhone')
+    def validate_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Phone number must be in format 09XXXXXXXX')
+        return v
+    
+    @validator('amount')
+    def validate_amount(cls, v):
+        if v > 100000:
+            raise ValueError('Maximum transfer amount is 100,000 Birr')
+        if v < 1:
+            raise ValueError('Minimum transfer amount is 1 Birr')
+        return v
 
 
 class EqubDepositSchema(BaseModel):
-    phoneNumber: constr(min_length=10, max_length=15)
+    phoneNumber: constr(min_length=10, max_length=10)
     amount: PositiveFloat
     durationMonths: int
+    
+    @validator('phoneNumber')
+    def validate_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Phone number must be in format 09XXXXXXXX')
+        return v
+    
+    @validator('amount')
+    def validate_amount(cls, v):
+        if v < 500:
+            raise ValueError('Minimum equb deposit is 500 Birr')
+        if v > 50000:
+            raise ValueError('Maximum equb deposit is 50,000 Birr')
+        return v
+    
+    @validator('durationMonths')
+    def validate_duration(cls, v):
+        if v != 1:
+            raise ValueError('Equb duration must be exactly 1 month')
+        return v
 
 
 class EqubWithdrawSchema(BaseModel):
-    phoneNumber: constr(min_length=10, max_length=15)
+    phoneNumber: constr(min_length=10, max_length=10)
     equbAccountId: str
+    
+    @validator('phoneNumber')
+    def validate_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Phone number must be in format 09XXXXXXXX')
+        return v
+    
+    @validator('equbAccountId')
+    def validate_uuid(cls, v):
+        try:
+            uuid.UUID(v)
+        except ValueError:
+            raise ValueError('Invalid equb account ID format')
+        return v
 
 
 class UserResponse(BaseModel):

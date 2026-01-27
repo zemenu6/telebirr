@@ -1,9 +1,9 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Depends, HTTPException, status, Query, Request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from dotenv import load_dotenv
-from . import models, crud, schemas, auth, exceptions
+from . import models, crud, schemas, auth, exceptions, rate_limiter
 from typing import Dict
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -12,9 +12,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 load_dotenv()
 
-# Use hardcoded values for Koyeb deployment since environment variables aren't working
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1dBufXeykxdVBsrJ@mctmbhyqosnmbqorlhna.db.eu-central-1.nhost.run:5432/mctmbhyqosnmbqorlhna")
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+# Use environment variables with secure defaults
+DATABASE_URL = os.getenv("DATABASE_URL")
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secure-secret-key-change-in-production")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
+
+if SECRET_KEY == "your-secure-secret-key-change-in-production":
+    print("WARNING: Using default SECRET_KEY. Change in production!")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -40,10 +46,10 @@ app = FastAPI(title="TeleBirr API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://federal-blisse-telebirr-56e12994.koyeb.app", "https://mctmbhyqosnmbqorlhna.functions.nhost.run"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Exception handlers
@@ -74,7 +80,9 @@ def health_check():
 
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
-def send_money(payload: schemas.TransferSchema, db=Depends(get_db), token_user=Depends(get_current_user())):
+def send_money(payload: schemas.TransferSchema, request: Request, db=Depends(get_db), token_user=Depends(get_current_user())):
+    rate_limiter.check_rate_limit(request, rate_limiter.transaction_limiter)
+    
     if token_user.phone_number == payload.recipientPhone:
         raise exceptions.TeleBirrException("Cannot send money to yourself", "SELF_TRANSFER")
     
