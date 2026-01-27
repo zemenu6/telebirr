@@ -3,31 +3,36 @@ from sqlalchemy import select
 from passlib.context import CryptContext
 from . import models
 from datetime import datetime, timedelta
+from decimal import Decimal
 import uuid
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-
 def get_user_by_phone(db: Session, phone_number: str):
     return db.query(models.User).filter(models.User.phone_number == phone_number).first()
 
-
 def create_user(db: Session, phone_number: str, username: str, password: str, initial_balance: float = 0.0):
-    hashed = get_password_hash(password)
-    user = models.User(phone_number=phone_number, username=username, password_hash=hashed, balance=initial_balance)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
-
+    try:
+        hashed = get_password_hash(password)
+        user = models.User(
+            phone_number=phone_number, 
+            username=username, 
+            password_hash=hashed, 
+            balance=Decimal(str(initial_balance))
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except Exception as e:
+        db.rollback()
+        raise e
 
 def authenticate_user(db: Session, phone_number: str, password: str):
     user = get_user_by_phone(db, phone_number)

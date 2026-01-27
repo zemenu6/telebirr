@@ -21,11 +21,11 @@ def test_api():
     except Exception as e:
         print(f"✗ Health endpoint failed: {e}")
     
-    # Test 3: Signup
+    # Test 3: Signup with proper Ethiopian format
     signup_data = {
-        "phoneNumber": "+251912345678",
+        "phoneNumber": "0912345678",
         "username": "Test User",
-        "password": "test123"
+        "password": "test12"
     }
     try:
         response = requests.post(f"{BASE_URL}/auth/signup", json=signup_data)
