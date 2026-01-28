@@ -50,9 +50,9 @@ def create_transaction(db: Session, from_phone: str, to_phone: str, amount: floa
     tx = models.Transaction(
         from_phone=from_phone, 
         to_phone=to_phone, 
-        amount=amount, 
-        transaction_type=transaction_type,
-        status='COMPLETED',
+        amount=Decimal(str(amount)), 
+        transaction_type=models.TransactionType(transaction_type),
+        status=models.TransactionStatus.COMPLETED,
         created_at=datetime.utcnow()
     )
     db.add(tx)
@@ -68,15 +68,16 @@ def transfer_money(db: Session, from_phone: str, to_phone: str, amount: float):
         return False, "Sender not found"
     if receiver is None:
         return False, "Recipient not found"
-    if sender.balance < amount:
+    if sender.balance < Decimal(str(amount)):
         return False, "Insufficient balance"
 
     try:
-        sender.balance -= amount
-        receiver.balance += amount
+        sender.balance -= Decimal(str(amount))
+        receiver.balance += Decimal(str(amount))
         db.add(sender)
         db.add(receiver)
         tx = create_transaction(db, from_phone, to_phone, amount, 'TRANSFER')
+        db.commit()
         return True, tx
     except Exception as e:
         db.rollback()
@@ -91,18 +92,18 @@ def create_equb_account(db: Session, phone_number: str, amount: float, duration_
     if not user:
         return False, "User not found"
     
-    if user.balance < amount:
+    if user.balance < Decimal(str(amount)):
         return False, "Insufficient balance"
     
     maturity_date = datetime.utcnow() + timedelta(days=30 * duration_months)
     
     try:
-        user.balance -= amount
+        user.balance -= Decimal(str(amount))
         db.add(user)
         
         equb_account = models.EqubAccount(
             phone_number=phone_number,
-            amount=amount,
+            amount=Decimal(str(amount)),
             deposit_date=datetime.utcnow(),
             maturity_date=maturity_date,
             can_withdraw=False,

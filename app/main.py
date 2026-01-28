@@ -112,67 +112,47 @@ def login(payload: schemas.LoginRequest, db=Depends(get_db)):
 
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
-def send_money(payload: schemas.SendMoneyRequest, request: Request, db=Depends(get_db)):
-    rate_limiter.check_rate_limit(request, rate_limiter.transaction_limiter)
-    
-    # For now, we need sender phone - this should come from authentication later
-    # For testing, we'll assume the first user in the system is the sender
-    sender = db.query(crud.models.User).first()
+def send_money(payload: schemas.SendMoneyRequest, db=Depends(get_db)):
+    # Get sender from request - need to add sender phone to request
+    # For now, using first user as sender (TEMPORARY - needs authentication)
+    sender = db.query(models.User).first()
     if not sender:
-        raise exceptions.UserNotFoundException()
+        raise HTTPException(status_code=404, detail="No users found")
     
     if sender.phone_number == payload.recipientPhone:
-        raise exceptions.TeleBirrException("Cannot send money to yourself", "SELF_TRANSFER")
+        raise HTTPException(status_code=400, detail="Cannot send money to yourself")
     
-    ok, result = crud.transfer_money(db, sender.phone_number, payload.recipientPhone, payload.amount)
+    ok, result = crud.transfer_money(db, sender.phone_number, payload.recipientPhone, float(payload.amount))
     if not ok:
         if "Insufficient balance" in result:
-            raise exceptions.InsufficientFundsException()
+            raise HTTPException(status_code=400, detail="Insufficient balance")
         elif "not found" in result:
-            raise exceptions.UserNotFoundException()
+            raise HTTPException(status_code=404, detail="Recipient not found")
         else:
-            raise exceptions.TeleBirrException(result, "TRANSFER_FAILED")
+            raise HTTPException(status_code=500, detail=result)
     
+    # Refresh sender to get updated balance
+    db.refresh(sender)
     return {
         "success": True,
         "message": "Money sent successfully",
         "transactionId": str(result.id),
         "newBalance": f"{sender.balance:.2f}"
     }
-    rate_limiter.check_rate_limit(request, rate_limiter.transaction_limiter)
-    
-    if token_user.phone_number == payload.recipientPhone:
-        raise exceptions.TeleBirrException("Cannot send money to yourself", "SELF_TRANSFER")
-    
-    ok, result = crud.transfer_money(db, token_user.phone_number, payload.recipientPhone, payload.amount)
-    if not ok:
-        if "Insufficient balance" in result:
-            raise exceptions.InsufficientFundsException()
-        elif "not found" in result:
-            raise exceptions.UserNotFoundException()
-        else:
-            raise exceptions.TeleBirrException(result, "TRANSFER_FAILED")
-    
-    return {
-        "success": True,
-        "message": "Money sent successfully",
-        "transactionId": str(result.id),
-        "newBalance": f"{token_user.balance:.2f}"
-    }
 
 
 @app.post("/equb/deposit", response_model=schemas.EqubDepositResponse)
 def equb_deposit(payload: schemas.EqubDepositRequest, db=Depends(get_db)):
-    ok, result = crud.create_equb_account(db, payload.phoneNumber, payload.amount, payload.durationMonths)
+    ok, result = crud.create_equb_account(db, payload.phoneNumber, float(payload.amount), payload.durationMonths)
     if not ok:
         if "Minimum deposit" in result:
-            raise exceptions.MinimumDepositException()
+            raise HTTPException(status_code=400, detail="Minimum deposit is 500 Birr")
         elif "Insufficient balance" in result:
-            raise exceptions.InsufficientFundsException()
+            raise HTTPException(status_code=400, detail="Insufficient balance")
         elif "not found" in result:
-            raise exceptions.UserNotFoundException()
+            raise HTTPException(status_code=404, detail="User not found")
         else:
-            raise exceptions.TeleBirrException(result, "EQUB_DEPOSIT_FAILED")
+            raise HTTPException(status_code=500, detail=result)
     
     return {
         "success": True,
@@ -181,8 +161,8 @@ def equb_deposit(payload: schemas.EqubDepositRequest, db=Depends(get_db)):
             "id": str(result.id),
             "phoneNumber": result.phone_number,
             "amount": f"{result.amount:.2f}",
-            "depositDate": result.deposit_date,
-            "maturityDate": result.maturity_date,
+            "depositDate": result.deposit_date.isoformat(),
+            "maturityDate": result.maturity_date.isoformat(),
             "canWithdraw": result.can_withdraw,
             "isActive": result.is_active
         }
@@ -194,13 +174,13 @@ def equb_withdraw(payload: schemas.EqubWithdrawRequest, db=Depends(get_db)):
     ok, result = crud.withdraw_equb(db, payload.phoneNumber, payload.equbAccountId)
     if not ok:
         if "not found" in result:
-            raise exceptions.EqubNotFoundException()
+            raise HTTPException(status_code=404, detail="Equb account not found")
         elif "not mature" in result:
-            raise exceptions.EqubNotMatureException()
+            raise HTTPException(status_code=400, detail="Equb not mature for withdrawal")
         elif "Invalid" in result:
-            raise exceptions.TeleBirrException(result, "INVALID_EQUB_ID")
+            raise HTTPException(status_code=400, detail="Invalid equb account ID")
         else:
-            raise exceptions.TeleBirrException(result, "EQUB_WITHDRAW_FAILED")
+            raise HTTPException(status_code=500, detail=result)
     
     user = crud.get_user_by_phone(db, payload.phoneNumber)
     return {
