@@ -158,7 +158,7 @@ def withdraw_equb(db: Session, phone_number: str, equb_account_id: str):
         db.add(user)
         db.add(equb_account)
         
-        tx = create_transaction(db, phone_number, phone_number, equb_account.amount, 'EQUB_WITHDRAWAL')
+        tx = create_transaction(db, phone_number, phone_number, float(equb_account.amount), 'EQUB_WITHDRAWAL')
         
         db.commit()
         return True, tx

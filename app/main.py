@@ -82,8 +82,8 @@ def signup(payload: schemas.SignupRequest, db=Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=409, detail="Phone number already registered")
     
-    # Create user in local database
-    user = crud.create_user(db, payload.phoneNumber, payload.username, payload.password)
+    # Create user with initial balance of 1000 Birr for testing
+    user = crud.create_user(db, payload.phoneNumber, payload.username, payload.password, 1000.0)
     if not user:
         raise HTTPException(status_code=500, detail="Failed to create user")
     
@@ -113,11 +113,12 @@ def login(payload: schemas.LoginRequest, db=Depends(get_db)):
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
 def send_money(payload: schemas.SendMoneyRequest, db=Depends(get_db)):
-    # Get sender from request - need to add sender phone to request
-    # For now, using first user as sender (TEMPORARY - needs authentication)
-    sender = db.query(models.User).first()
+    # TEMPORARY: Get sender phone from first available user
+    # In production, this should come from authentication token
+    sender = db.query(models.User).filter(models.User.balance > 0).first()
     if not sender:
-        raise HTTPException(status_code=404, detail="No users found")
+        # Create a test user if none exists
+        sender = crud.create_user(db, "0900000000", "Test Sender", "test12", 5000.0)
     
     if sender.phone_number == payload.recipientPhone:
         raise HTTPException(status_code=400, detail="Cannot send money to yourself")
@@ -195,7 +196,7 @@ def equb_withdraw(payload: schemas.EqubWithdrawRequest, db=Depends(get_db)):
 def get_balance(phoneNumber: str = Query(...), db=Depends(get_db)):
     user = crud.get_user_by_phone(db, phoneNumber)
     if not user:
-        raise exceptions.UserNotFoundException()
+        raise HTTPException(status_code=404, detail="User not found")
     
     equb_accounts = crud.get_equb_accounts(db, phoneNumber)
     
@@ -205,8 +206,8 @@ def get_balance(phoneNumber: str = Query(...), db=Depends(get_db)):
             "id": str(account.id),
             "phoneNumber": account.phone_number,
             "amount": f"{account.amount:.2f}",
-            "depositDate": account.deposit_date,
-            "maturityDate": account.maturity_date,
+            "depositDate": account.deposit_date.isoformat(),
+            "maturityDate": account.maturity_date.isoformat(),
             "canWithdraw": account.can_withdraw,
             "isActive": account.is_active
         })
