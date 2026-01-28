@@ -123,7 +123,10 @@ def send_money(payload: schemas.SendMoneyRequest, db=Depends(get_db)):
     if sender.phone_number == payload.recipientPhone:
         raise HTTPException(status_code=400, detail="Cannot send money to yourself")
     
-    ok, result = crud.transfer_money(db, sender.phone_number, payload.recipientPhone, float(payload.amount))
+    # Store original sender phone to get updated balance
+    sender_phone = sender.phone_number
+    
+    ok, result = crud.transfer_money(db, sender_phone, payload.recipientPhone, float(payload.amount))
     if not ok:
         if "Insufficient balance" in result:
             raise HTTPException(status_code=400, detail="Insufficient balance")
@@ -132,13 +135,14 @@ def send_money(payload: schemas.SendMoneyRequest, db=Depends(get_db)):
         else:
             raise HTTPException(status_code=500, detail=result)
     
-    # Refresh sender to get updated balance
-    db.refresh(sender)
+    # Get updated sender balance after transaction
+    updated_sender = crud.get_user_by_phone(db, sender_phone)
+    
     return {
         "success": True,
         "message": "Money sent successfully",
         "transactionId": str(result.id),
-        "newBalance": f"{sender.balance:.2f}"
+        "newBalance": f"{updated_sender.balance:.2f}"
     }
 
 
@@ -197,6 +201,9 @@ def get_balance(phoneNumber: str = Query(...), db=Depends(get_db)):
     user = crud.get_user_by_phone(db, phoneNumber)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Update equb maturity status before returning
+    crud.update_equb_maturity(db)
     
     equb_accounts = crud.get_equb_accounts(db, phoneNumber)
     
