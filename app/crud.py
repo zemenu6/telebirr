@@ -196,6 +196,13 @@ def withdraw_equb(db: Session, phone_number: str, equb_account_id: str):
         return False, str(e)
 
 
+def get_user_transactions(db: Session, phone_number: str):
+    return db.query(models.Transaction).filter(
+        (models.Transaction.from_phone == phone_number) | 
+        (models.Transaction.to_phone == phone_number)
+    ).order_by(models.Transaction.created_at.desc()).limit(50).all()
+
+
 def update_equb_maturity(db: Session):
     equb_accounts = db.query(models.EqubAccount).filter(
         models.EqubAccount.maturity_date <= datetime.utcnow(),

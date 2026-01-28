@@ -36,13 +36,20 @@ class LoginRequest(BaseModel):
 
 
 class SendMoneyRequest(BaseModel):
+    senderPhone: constr(min_length=10, max_length=10)
     recipientPhone: constr(min_length=10, max_length=10)
     amount: PositiveFloat
     
-    @validator('recipientPhone')
-    def validate_phone(cls, v):
+    @validator('senderPhone')
+    def validate_sender_phone(cls, v):
         if not re.match(r'^09[0-9]{8}$', v):
-            raise ValueError('Phone number must be in format 09XXXXXXXX')
+            raise ValueError('Sender phone number must be in format 09XXXXXXXX')
+        return v
+    
+    @validator('recipientPhone')
+    def validate_recipient_phone(cls, v):
+        if not re.match(r'^09[0-9]{8}$', v):
+            raise ValueError('Recipient phone number must be in format 09XXXXXXXX')
         return v
     
     @validator('amount')
@@ -141,6 +148,27 @@ class BalanceResponse(BaseModel):
     success: bool
     balance: str
     equbAccounts: List[EqubAccountResponse]
+
+
+class TransactionHistoryItem(BaseModel):
+    id: str
+    fromPhone: str
+    toPhone: str
+    amount: str
+    transactionType: str
+    status: str
+    createdAt: str
+
+
+class TransactionHistoryResponse(BaseModel):
+    success: bool
+    transactions: List[TransactionHistoryItem]
+
+
+class CheckPhoneResponse(BaseModel):
+    success: bool
+    phoneNumber: str
+    username: str
 
 
 class ErrorResponse(BaseModel):

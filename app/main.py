@@ -113,18 +113,11 @@ def login(payload: schemas.LoginRequest, db=Depends(get_db)):
 
 @app.post("/transactions/send-money", response_model=schemas.TransactionResponse)
 def send_money(payload: schemas.SendMoneyRequest, db=Depends(get_db)):
-    # TEMPORARY: Get sender phone from first available user
-    # In production, this should come from authentication token
-    sender = db.query(models.User).filter(models.User.balance > 0).first()
-    if not sender:
-        # Create a test user if none exists
-        sender = crud.create_user(db, "0900000000", "Test Sender", "test12", 5000.0)
+    # Use sender phone from payload
+    sender_phone = payload.senderPhone
     
-    if sender.phone_number == payload.recipientPhone:
+    if sender_phone == payload.recipientPhone:
         raise HTTPException(status_code=400, detail="Cannot send money to yourself")
-    
-    # Store original sender phone to get updated balance
-    sender_phone = sender.phone_number
     
     ok, result = crud.transfer_money(db, sender_phone, payload.recipientPhone, float(payload.amount))
     if not ok:
@@ -193,6 +186,45 @@ def equb_withdraw(payload: schemas.EqubWithdrawRequest, db=Depends(get_db)):
         "message": "Equb withdrawal successful",
         "transactionId": str(result.id),
         "newBalance": f"{user.balance:.2f}"
+    }
+
+
+@app.get("/user/transactions")
+def get_transaction_history(phoneNumber: str = Query(...), db=Depends(get_db)):
+    user = crud.get_user_by_phone(db, phoneNumber)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    transactions = crud.get_user_transactions(db, phoneNumber)
+    
+    transaction_responses = []
+    for tx in transactions:
+        transaction_responses.append({
+            "id": str(tx.id),
+            "fromPhone": tx.from_phone,
+            "toPhone": tx.to_phone,
+            "amount": f"{tx.amount:.2f}",
+            "transactionType": tx.transaction_type.value,
+            "status": tx.status.value,
+            "createdAt": tx.created_at.isoformat()
+        })
+    
+    return {
+        "success": True,
+        "transactions": transaction_responses
+    }
+
+
+@app.get("/user/check-phone")
+def check_phone_number(phoneNumber: str = Query(...), db=Depends(get_db)):
+    user = crud.get_user_by_phone(db, phoneNumber)
+    if not user:
+        raise HTTPException(status_code=404, detail="Phone number not found")
+    
+    return {
+        "success": True,
+        "phoneNumber": user.phone_number,
+        "username": user.username
     }
 
 
